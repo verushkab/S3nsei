@@ -1,0 +1,29 @@
+#Archivos de entorno
+.env
+
+#Archivos Python compilados
+__pycache__/
+*.pyc
+*.pyo
+
+#Entornos virtuales
+venv/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+#Docker
+*.tar
+docker-compose.override.yml
+
+#Archivos del sistema
+.DS_Store
+Thumbs.db
+
+#Archivos de logs
+*.log
+
+#Otros posibles archivos sensibles
+*.ini
+s3nsei-bot.tar
