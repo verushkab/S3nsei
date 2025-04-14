@@ -96,4 +96,4 @@ docker run --env-file .env s3nsei-bot
 
 ## 👩‍🏫 Autor
 
-Creado por [tu nombre], estudiante de AWS re/Start 2025.
+Creado por Veruzka B, estudiante de AWS re/Start 2025.

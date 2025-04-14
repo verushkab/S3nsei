@@ -27,3 +27,4 @@ Thumbs.db
 #Otros posibles archivos sensibles
 *.ini
 s3nsei-bot.tar
+ini.env
