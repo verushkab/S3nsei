@@ -25,7 +25,7 @@ async def on_ready():
         await interaction.response.send_message("¡Hola! Soy S3nsei 🧠☁️, tu guía en el mundo AWS.")
 
     try:
-        synced = await bot.tree.sync(guild=discord.Object(id=CANAL_ID))
+        synced = await bot.tree.sync()
     except Exception as e:
         print(f"Error al sincronizar slash commands: {e}")
 
