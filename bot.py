@@ -30,7 +30,7 @@ async def on_ready():
         print(f"Error al sincronizar slash commands: {e}")
 
 #Recursos
-@bot.tree.command(name="recursos", description="Enlaces útiles y recursos del curso AWS re/Start 📚", guild=discord.Object(id=CANAL_ID))
+@bot.tree.command(name="recursos", description="Enlaces útiles y recursos del curso AWS re/Start 📚")
 async def recursos(interaction: discord.Interaction):
     try:
         with open('recursos.json', 'r') as archivo:
@@ -51,7 +51,7 @@ async def recursos(interaction: discord.Interaction):
         print(e)
 
 #Tareas
-@bot.tree.command(name="tarea", description="Lista de tareas pendientes 📅", guild=discord.Object(id=CANAL_ID))
+@bot.tree.command(name="tarea", description="Lista de tareas pendientes 📅")
 async def tarea(interaction: discord.Interaction):
     try:
         with open('tareas.json', 'r') as archivo:
@@ -105,7 +105,7 @@ async def agregar_tarea_error(ctx, error):
         await ctx.send("⛔ No tienes permiso para usar este comando. Solo roles autorizados pueden agregar tareas.")
 
 #Tip del día
-@bot.tree.command(name="tip", description="Consejo del día para dominar AWS paso a paso ☁️📘", guild=discord.Object(id=CANAL_ID))
+@bot.tree.command(name="tip", description="Consejo del día para dominar AWS paso a paso ☁️📘")
 async def tip(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
     with open("tips.json", "r") as archivo:
@@ -129,9 +129,9 @@ async def enviar_tip_diario():
                 await canal.send(tip_aleatorio) 
                 
 #Ayuda
-@bot.tree.command(name="ayuda", description="Saluda con sabiduría cloud ☁️", guild=discord.Object(id=CANAL_ID))
+@bot.tree.command(name="ayuda", description="Saluda con sabiduría cloud ☁️")
 async def ayuda(interaction: discord.Interaction):
-    await interaction.response.send_message('📖 Comandos disponibles:\n`/hola` - Saludo de S3nsei\n`/tarea` - Próxima tarea o entrega\n`/tip` - Tip del curso del dia\n`/recursos` - Recursos útiles')
+    await interaction.response.send_message('📖 Comandos disponibles:\n`/saludo` - Saludo de S3nsei\n`/tarea` - Próxima tarea o entrega\n`/tip` - Tip del curso del dia\n`/recursos` - Recursos útiles')
 
 bot.run(TOKEN)
 
