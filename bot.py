@@ -20,14 +20,15 @@ async def on_ready():
     print(f'🧠 S3nsei conectado como {bot.user}')
     enviar_tip_diario.start()
 
-    @bot.tree.command(name="saludo", description="Saluda con sabiduría cloud ☁️")
-    async def saludo(interaction: discord.Interaction):
-        await interaction.response.send_message("¡Hola! Soy S3nsei 🧠☁️, tu guía en el mundo AWS.")
-
     try:
         synced = await bot.tree.sync()
     except Exception as e:
         print(f"Error al sincronizar slash commands: {e}")
+
+#Saludo
+@bot.tree.command(name="saludo", description="Saluda con sabiduría cloud ☁️")
+async def saludo(interaction: discord.Interaction):
+    await interaction.response.send_message("¡Hola! Soy S3nsei 🧠☁️, tu guía en el mundo AWS.")
 
 #Recursos
 @bot.tree.command(name="recursos", description="Enlaces útiles y recursos del curso AWS re/Start 📚")
