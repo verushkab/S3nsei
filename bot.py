@@ -26,12 +26,12 @@ async def on_ready():
         print(f"Error al sincronizar slash commands: {e}")
 
 #Saludo
-@bot.tree.command(name="Saludo", description="Saluda con sabiduría cloud ☁️")
+@bot.tree.command(name="saludo", description="Saluda con sabiduría cloud ☁️")
 async def saludo(interaction: discord.Interaction):
     await interaction.response.send_message("¡Hola! Soy S3nsei 🧠☁️, tu guía en el mundo AWS.")
 
 #Recursos
-@bot.tree.command(name="Recursos", description="Enlaces útiles y recursos del curso AWS re/Start 📚")
+@bot.tree.command(name="recursos", description="Enlaces útiles y recursos del curso AWS re/Start 📚")
 async def recursos(interaction: discord.Interaction):
     try:
         with open('recursos.json', 'r') as archivo:
@@ -52,7 +52,7 @@ async def recursos(interaction: discord.Interaction):
         print(e)
 
 #Tareas
-@bot.tree.command(name="Tareas", description="Lista de tareas pendientes 📅")
+@bot.tree.command(name="tareas", description="Lista de tareas pendientes 📅")
 async def tarea(interaction: discord.Interaction):
     try:
         with open('tareas.json', 'r') as archivo:
@@ -106,7 +106,7 @@ async def agregar_tarea_error(ctx, error):
         await ctx.send("⛔ No tienes permiso para usar este comando. Solo roles autorizados pueden agregar tareas.")
 
 #Tip del día
-@bot.tree.command(name="Tip", description="Consejo del día para dominar AWS paso a paso ☁️📘")
+@bot.tree.command(name="tip", description="Consejo del día para dominar AWS paso a paso ☁️📘")
 async def tip(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
     with open("tips.json", "r") as archivo:
@@ -130,7 +130,7 @@ async def enviar_tip_diario():
                 await canal.send(tip_aleatorio) 
                 
 #Ayuda
-@bot.tree.command(name="Ayuda", description="Una guía de como podemos hablar 💡")
+@bot.tree.command(name="ayuda", description="Una guía de como podemos hablar 💡")
 async def ayuda(interaction: discord.Interaction):
     await interaction.response.send_message('📖 Comandos disponibles:\n`/saludo` - Saludo de S3nsei\n`/tarea` - Próxima tarea o entrega\n`/tip` - Tip del curso del dia\n`/recursos` - Recursos útiles')
 
