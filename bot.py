@@ -3,6 +3,7 @@ import json
 import os
 import random
 import datetime
+import uuid
 from discord.ext.commands import has_role, CheckFailure
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
@@ -15,6 +16,10 @@ CANAL_ID = os.getenv("CANAL_ID")  #Obtiene el valor del Canal ID a donde se envi
 intents = discord.Intents.all()
 intents.message_content = True  #Necesario para leer mensajes
 bot = commands.Bot(command_prefix='!', intents=intents)
+dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
+tareasdb = dynamodb.Table('Tareas') 
+tipsdb = dynamodb.Table('Tips')
+recursosdb = dynamodb.Table('Recursos')
 
 
 @bot.event
@@ -41,19 +46,21 @@ async def saludo(interaction: discord.Interaction):
 #Recursos
 @bot.tree.command(name="recursos", description="Enlaces útiles y recursos del curso AWS re/Start 📚")
 async def recursos(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+    
     try:
-        with open('recursos.json', 'r') as archivo:
-            datos = json.load(archivo)
+        response = recursosdb.scan()
+        datos = response['Items']
 
         if not datos:
-            await interaction.response.send_message("X No hay recursos aún.")
+            await interaction.followup.send("❌ No hay recursos aún.")
             return
 
         mensaje = "📚 **Lista de recursos:**:\n\n"
         for r in datos:
             mensaje += f"• **{r['recurso']}** \n"
 
-        await interaction.response.send_message(mensaje)
+        await interaction.followup.send(mensaje)
 
     except Exception as e:
         log_text = f"""
@@ -63,23 +70,23 @@ async def recursos(interaction: discord.Interaction):
                     Fecha: {datetime.datetime.now()}
                     """
         upload_log_to_s3(log_text, filename_prefix="leer_recursos_error")
-        await interaction.response.send_message("⚠️ No pude leer los recursos.")
+        await interaction.followup.send("⚠️ No pude leer los recursos.")
         print(e)
 
 #Tareas
 @bot.tree.command(name="tareas", description="Lista de tareas pendientes 📅")
 async def tarea(interaction: discord.Interaction):
     try:
-        with open('tareas.json', 'r') as archivo:
-            datos = json.load(archivo)
+        response = tareasdb.scan()  #Escanea todas las tareas
+        tareas = response['Items']  #Obtiene la lista de tareas
 
-        if not datos:
+        if not tareas:
             await interaction.response.send_message("✅ No hay tareas pendientes. ¡Buen trabajo, equipo!")
             return
 
-        mensaje = "📚 **Lista de tareas:**:\n\n"
-        for r in datos:
-            mensaje += f"• **{r['titulo']}** – 🗓️ {r['fecha']}\n   _{r['detalle']}_\n"
+        mensaje = "📚 **Lista de tareas:**\n\n"
+        for tarea in tareas:
+            mensaje += f"• **{tarea['titulo']}** – 🗓️ {tarea['fecha']}\n   _{tarea['detalle']}_\n\n"
 
         await interaction.response.send_message(mensaje)
 
@@ -94,33 +101,28 @@ async def tarea(interaction: discord.Interaction):
         await interaction.response.send_message("⚠️ No pude leer las tareas.")
         print(e)
 
+
 #Agregar tarea
 @bot.command()  
 @has_role("Instructor")  #Añadir Tareas por un role especifico
 async def agregar_tarea(ctx, titulo: str, fecha: str, *, detalle: str,):
+    tarea_id = str(uuid.uuid4())  #Generar un ID único para cada tarea
     nueva_tarea = {
+        "id": tarea_id,
         "titulo": titulo,
         "fecha": fecha,
-        "detalle": detalle
+        "detalle": detalle,
+        "fecha_creacion": str(datetime.datetime.now())
     }
 
     try:
-        if not os.path.exists('tareas.json'):
-            with open('tareas.json', 'w') as f:
-                json.dump([], f)
-
-        with open('tareas.json', 'r') as archivo:
-            tareas = json.load(archivo)
-
-        tareas.append(nueva_tarea)
-
-        with open('tareas.json', 'w') as archivo:
-            json.dump(tareas, archivo, indent=4)
+        #Guardar la tarea en DynamoDB
+        tareasdb.put_item(Item=nueva_tarea)
 
         log_text = f"""
                     ✅ TAREA AGREGADA
-                    Usuario: {discord.user}
-                    Contenido: {tarea} 
+                    Usuario: {ctx.author}
+                    Contenido: {nueva_tarea} 
                     Fecha: {datetime.datetime.now()}
                     """
         upload_log_to_s3(log_text, filename_prefix="tarea_agregada")
@@ -135,7 +137,7 @@ async def agregar_tarea_error(ctx, error):
     if isinstance(error, CheckFailure):
         log_text = f"""
                     🔴 ERROR al usar /agregar_tarea
-                    Usuario: {discord.user}
+                    Usuario: {ctx.author}
                     Error: {error}
                     Fecha: {datetime.datetime.now()}
                     """
@@ -146,10 +148,28 @@ async def agregar_tarea_error(ctx, error):
 @bot.tree.command(name="tip", description="Consejo del día para dominar AWS paso a paso ☁️📘")
 async def tip(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
-    with open("tips.json", "r") as archivo:
-            tips = json.load(archivo)
+
+    try:
+        response = tipsdb.scan()  #Escanea todos los elementos en la tabla
+        tips = response['Items']
+        
+        if tips:
+            # Elegir un tip aleatorio
             tip_aleatorio = random.choice(tips)
-            await interaction.followup.send(tip_aleatorio["tip"])
+            await interaction.followup.send(tip_aleatorio['tip'])
+        else:
+            await interaction.followup.send("⚠️ No hay tips disponibles en este momento.")
+    
+    except Exception as e:
+        log_text = f"""
+                    🔴 ERROR al obtener el tip
+                    Usuario: {interaction.user}
+                    Error: {e}
+                    Fecha: {datetime.datetime.now()}
+                    """
+        upload_log_to_s3(log_text, filename_prefix="leer_tip_error")
+        await interaction.followup.send("⚠️ No pude obtener el consejo del día.")
+        print(e)
 
 #Enviar tips automatizado a una hora
 @tasks.loop(minutes=1) 
