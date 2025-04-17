@@ -6,6 +6,7 @@ import datetime
 from discord.ext.commands import has_role, CheckFailure
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
+import boto3
 
 
 load_dotenv('ini.env')  #Carga el archivo .env
@@ -15,6 +16,7 @@ intents = discord.Intents.all()
 intents.message_content = True  #Necesario para leer mensajes
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+
 @bot.event
 async def on_ready():
     print(f'🧠 S3nsei conectado como {bot.user}')
@@ -23,6 +25,12 @@ async def on_ready():
     try:
         synced = await bot.tree.sync()
     except Exception as e:
+        log_text = f"""
+        🔴 ERROR al sincronizar slash commands
+        Error: {e}
+        Fecha: {datetime.datetime.now()}
+        """
+        upload_log_to_s3(log_text, filename_prefix="sync_error")
         print(f"Error al sincronizar slash commands: {e}")
 
 #Saludo
@@ -48,6 +56,13 @@ async def recursos(interaction: discord.Interaction):
         await interaction.response.send_message(mensaje)
 
     except Exception as e:
+        log_text = f"""
+                    🔴 ERROR al leer recursos
+                    Usuario: {interaction.user}
+                    Error: {e}
+                    Fecha: {datetime.datetime.now()}
+                    """
+        upload_log_to_s3(log_text, filename_prefix="leer_recursos_error")
         await interaction.response.send_message("⚠️ No pude leer los recursos.")
         print(e)
 
@@ -69,13 +84,20 @@ async def tarea(interaction: discord.Interaction):
         await interaction.response.send_message(mensaje)
 
     except Exception as e:
+        log_text = f"""
+                    🔴 ERROR al leer tareas
+                    Usuario: {interaction.user}
+                    Error: {e}
+                    Fecha: {datetime.datetime.now()}
+                    """
+        upload_log_to_s3(log_text, filename_prefix="leer_tareas_error")
         await interaction.response.send_message("⚠️ No pude leer las tareas.")
         print(e)
 
 #Agregar tarea
 @bot.command()  
 @has_role("Instructor")  #Añadir Tareas por un role especifico
-async def agregar_tarea(ctx, titulo: str, fecha: str, *, detalle: str):
+async def agregar_tarea(ctx, titulo: str, fecha: str, *, detalle: str,):
     nueva_tarea = {
         "titulo": titulo,
         "fecha": fecha,
@@ -95,6 +117,14 @@ async def agregar_tarea(ctx, titulo: str, fecha: str, *, detalle: str):
         with open('tareas.json', 'w') as archivo:
             json.dump(tareas, archivo, indent=4)
 
+        log_text = f"""
+                    ✅ TAREA AGREGADA
+                    Usuario: {discord.user}
+                    Contenido: {tarea} 
+                    Fecha: {datetime.datetime.now()}
+                    """
+        upload_log_to_s3(log_text, filename_prefix="tarea_agregada")
+
         await ctx.send(f"✅ Tarea **{titulo}** añadida correctamente para el {fecha}.")
     except Exception as e:
         await ctx.send("⚠️ No se pudo agregar la tarea.")
@@ -103,6 +133,13 @@ async def agregar_tarea(ctx, titulo: str, fecha: str, *, detalle: str):
 @agregar_tarea.error #Role no autorizado
 async def agregar_tarea_error(ctx, error):
     if isinstance(error, CheckFailure):
+        log_text = f"""
+                    🔴 ERROR al usar /agregar_tarea
+                    Usuario: {discord.user}
+                    Error: {error}
+                    Fecha: {datetime.datetime.now()}
+                    """
+        upload_log_to_s3(log_text, filename_prefix="agregar_tarea_error")
         await ctx.send("⛔ No tienes permiso para usar este comando. Solo roles autorizados pueden agregar tareas.")
 
 #Tip del día
@@ -128,7 +165,38 @@ async def enviar_tip_diario():
                 tips = json.load(archivo)
                 tip_aleatorio = random.choice(tips) #Necesito almacenarlo para luego mostrarlo cuando sea solicitado en "Tip del día"
                 await canal.send(tip_aleatorio) 
-                
+
+#Logs a S3
+def upload_log_to_s3(log_text, filename_prefix="log"):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"{filename_prefix}_{timestamp}.txt"
+
+    #Archivo temporal
+    with open(filename, "w") as file:
+        file.write(log_text)
+    try:
+        s3 = boto3.client("s3")
+        bucket_name = "s3nsei-logs"
+        s3.upload_file(filename, bucket_name, filename)
+        print(f"✅ Log subido a S3: {filename}")
+    except Exception as e:
+        print(f"❌ Error al subir log a S3: {e}")
+    finally:
+        if os.path.exists(filename):
+            os.remove(filename)  #Eliminando archivo temporal
+
+#Comando de prueba para logs en S3
+@bot.command(name="logtest")
+async def logtest(ctx):
+    log_text = f"""LOG DE COMANDO:
+    Usuario: {ctx.author}
+    Mensaje: {ctx.message.content}
+    Canal: {ctx.channel}
+    Fecha: {datetime.datetime.now()}
+    """
+    upload_log_to_s3(log_text, filename_prefix="comando_logtest")
+    await ctx.send("📤 Tu mensaje ha sido guardado como log en S3.")
+
 #Ayuda
 @bot.tree.command(name="ayuda", description="Una guía de como podemos hablar 💡")
 async def ayuda(interaction: discord.Interaction):
