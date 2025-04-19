@@ -3,6 +3,7 @@ import json
 import os
 import random
 import datetime
+from datetime import datetime
 import uuid
 from discord.ext.commands import has_role, CheckFailure
 from discord.ext import commands, tasks
@@ -179,7 +180,7 @@ async def tip(interaction: discord.Interaction):
 #Enviar tips automatizado a una hora
 @tasks.loop(minutes=1) 
 async def enviar_tip_diario():
-    ahora = datetime.datetime.now().strftime("%H:%M")
+    ahora = datetime.now().strftime("%H:%M")
 
     #Enviar a las 10:00am 
     if ahora == "10:00":
@@ -231,8 +232,8 @@ async def ayuda(interaction: discord.Interaction):
 @bot.event
 async def on_message(message):
     if message.author.bot:
-        return 
-
+        return
+    
     if bot.user.mentioned_in(message) or "s3nsei" in message.content.lower():
 
         try:
