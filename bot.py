@@ -11,15 +11,20 @@ import boto3
 
 
 load_dotenv('ini.env')  #Carga el archivo .env
-TOKEN = os.getenv("DISCORD_TOKEN")  #Obtiene el valor de la variable
+TOKEN = os.getenv("DISCORD_TOKEN")  #Obtiene el valor del TOKEN
 CANAL_ID = os.getenv("CANAL_ID")  #Obtiene el valor del Canal ID a donde se enviaran los tipsintents = discord.Intents.all()
 intents = discord.Intents.all()
 intents.message_content = True  #Necesario para leer mensajes
 bot = commands.Bot(command_prefix='!', intents=intents)
-dynamodb = boto3.resource('dynamodb', region_name='us-east-2')
+dynamodb = boto3.resource('dynamodb', region_name='us-west-2')
 tareasdb = dynamodb.Table('Tareas') 
 tipsdb = dynamodb.Table('Tips')
 recursosdb = dynamodb.Table('Recursos')
+lex_client = boto3.client('lexv2-runtime', region_name='us-west-2')
+BOT_ID = os.getenv("BOT_ID")  #Obtiene id del botLex
+BOTALIAS_ID = os.getenv("BOTALIAS_ID")  #Obtiene id del botLexalias
+LOCALE_ID = os.getenv("LOCALE_ID") 
+usuarios_en_conversacion = {}
 
 
 @bot.event
@@ -221,6 +226,38 @@ async def logtest(ctx):
 @bot.tree.command(name="ayuda", description="Una guía de como podemos hablar 💡")
 async def ayuda(interaction: discord.Interaction):
     await interaction.response.send_message('📖 Comandos disponibles:\n`/saludo` - Saludo de S3nsei\n`/tarea` - Próxima tarea o entrega\n`/tip` - Tip del curso del dia\n`/recursos` - Recursos útiles')
+
+#Conexion con Amazon Lex 
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return 
+
+    if bot.user.mentioned_in(message) or "s3nsei" in message.content.lower():
+
+        try:
+            mensaje = message.content.replace(f'<@{bot.user.id}>', '').replace('S3nsei', '').strip()
+            lex_response = lex_client.recognize_text(
+                botId = BOT_ID,               
+                botAliasId = BOTALIAS_ID,          
+                localeId = LOCALE_ID,                
+                sessionId = str(message.author.id),
+                text = mensaje
+            )
+
+            intent = lex_response.get("interpretations", [{}])[0].get("intent", {})
+            intent_name = intent.get("name", "")
+            mensajes_lex = lex_response.get("messages", [])
+
+            if mensajes_lex:
+                respuesta = mensajes_lex[0]["content"]
+                await message.channel.send(f"☁️ {respuesta}")
+
+        except Exception as e:
+            await message.channel.send("⚠️ No pude consultar a mi sabiduría en la nube (Lex).")
+            print(f"❌ Error al consultar a Lex: {e}")
+
+        await bot.process_commands(message)
 
 bot.run(TOKEN)
 
