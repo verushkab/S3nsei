@@ -1,31 +1,21 @@
 import discord
-import json
 import os
-import random
+import boto3
 import datetime
 from datetime import datetime
-import uuid
-from discord.ext.commands import has_role, CheckFailure
-from discord.ext import commands, tasks
+from discord.ext import commands
 from dotenv import load_dotenv
-import boto3
+from lex_handler import consultar_lex
 
 
 load_dotenv('ini.env')  #Carga el archivo .env
 TOKEN = os.getenv("DISCORD_TOKEN")  #Obtiene el valor del TOKEN
-CANAL_ID = os.getenv("CANAL_ID")  #Obtiene el valor del Canal ID a donde se enviaran los tipsintents = discord.Intents.all()
 intents = discord.Intents.all()
 intents.message_content = True  #Necesario para leer mensajes
 bot = commands.Bot(command_prefix='!', intents=intents)
 dynamodb = boto3.resource('dynamodb', region_name='us-west-2')
 tareasdb = dynamodb.Table('Tareas') 
-tipsdb = dynamodb.Table('Tips')
 recursosdb = dynamodb.Table('Recursos')
-lex_client = boto3.client('lexv2-runtime', region_name='us-west-2')
-BOT_ID = os.getenv("BOT_ID")  #Obtiene id del botLex
-BOTALIAS_ID = os.getenv("BOTALIAS_ID")  #Obtiene id del botLexalias
-LOCALE_ID = os.getenv("LOCALE_ID") 
-usuarios_en_conversacion = {}
 
 
 @bot.event
@@ -33,7 +23,7 @@ async def on_ready():
     print(f'🧠 S3nsei conectado como {bot.user}')
 
     try:
-        synced = await bot.tree.sync()
+        await bot.tree.sync()
     except Exception as e:
         log_text = f"""
         🔴 ERROR al sincronizar slash commands
@@ -43,10 +33,6 @@ async def on_ready():
         upload_log_to_s3(log_text, filename_prefix="sync_error")
         print(f"Error al sincronizar slash commands: {e}")
 
-#Saludo
-@bot.tree.command(name="saludo", description="Saluda con sabiduría cloud ☁️")
-async def saludo(interaction: discord.Interaction):
-    await interaction.response.send_message("¡Hola! Soy S3nsei 🧠☁️, tu guía en el mundo AWS.")
 
 #Recursos
 @bot.tree.command(name="recursos", description="Enlaces útiles y recursos del curso AWS re/Start 📚")
@@ -106,7 +92,7 @@ async def tarea(interaction: discord.Interaction):
         await interaction.response.send_message("⚠️ No pude leer las tareas.")
         print(e)
 
-                    
+#Mover LOGS a un import                    
 #Logs a S3
 def upload_log_to_s3(log_text, filename_prefix="log"):
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -130,7 +116,7 @@ def upload_log_to_s3(log_text, filename_prefix="log"):
 #Ayuda
 @bot.tree.command(name="ayuda", description="Una guía de como podemos hablar 💡")
 async def ayuda(interaction: discord.Interaction):
-    await interaction.response.send_message('📖 Comandos disponibles:\n`/saludo` - Saludo de S3nsei\n`/tarea` - Próxima tarea o entrega\n`/recursos` - Recursos útiles\nPuedes preguntarme sobre algunos servicios de AWS usando mi nombre `S3nsei` o `@S3nsei`')
+    await interaction.response.send_message('📖 Comandos disponibles:\n`/tarea` - Próxima tarea o entrega\n`/recursos` - Recursos útiles\nPuedes preguntarme sobre algunos `servicios de AWS`')
 
 
 #Conexion con Amazon Lex 
@@ -138,32 +124,21 @@ async def ayuda(interaction: discord.Interaction):
 async def on_message(message):
     if message.author.bot:
         return
-    
+
+    #Si está en canal grupal y fue mencionado o escriben "s3nsei"
     if bot.user.mentioned_in(message) or "s3nsei" in message.content.lower():
 
-        try:
-            mensaje = message.content.replace(f'<@{bot.user.id}>', '').replace('S3nsei', '').strip()
-            lex_response = lex_client.recognize_text(
-                botId = BOT_ID,               
-                botAliasId = BOTALIAS_ID,          
-                localeId = LOCALE_ID,                
-                sessionId = str(message.author.id),
-                text = mensaje
-            )
+        #Limpiamos mención si es que viene con <@botID>
+        texto = message.content.replace(f'<@{bot.user.id}>', '').strip()
+        respuesta = consultar_lex(texto, user_id=message.author.id)
+        await message.channel.send(f"☁️ {respuesta}")
 
-            intent = lex_response.get("interpretations", [{}])[0].get("intent", {})
-            intent_name = intent.get("name", "")
-            mensajes_lex = lex_response.get("messages", [])
+    #Si está en un DM (mensaje directo), responde siempre
+    elif isinstance(message.channel, discord.DMChannel):
+        respuesta = consultar_lex(message.content.strip(), user_id=message.author.id)
+        await message.channel.send(f"☁️ {respuesta}")
 
-            if mensajes_lex:
-                respuesta = mensajes_lex[0]["content"]
-                await message.channel.send(f"☁️ {respuesta}")
-
-        except Exception as e:
-            await message.channel.send("⚠️ No pude consultar a mi sabiduría en la nube (Lex).")
-            print(f"❌ Error al consultar a Lex: {e}")
-
-        await bot.process_commands(message)
+    await bot.process_commands(message)
 
 
 bot.run(TOKEN)
