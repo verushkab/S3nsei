@@ -31,8 +31,6 @@ usuarios_en_conversacion = {}
 @bot.event
 async def on_ready():
     print(f'🧠 S3nsei conectado como {bot.user}')
-    if not enviar_tip_diario.is_running():
-        enviar_tip_diario.start()
 
     try:
         synced = await bot.tree.sync()
@@ -108,61 +106,6 @@ async def tarea(interaction: discord.Interaction):
         await interaction.response.send_message("⚠️ No pude leer las tareas.")
         print(e)
 
-#Tip del día
-@bot.tree.command(name="tip", description="Consejo del día para dominar AWS paso a paso ☁️📘")
-async def tip(interaction: discord.Interaction):
-    await interaction.response.defer(thinking=True)
-
-    try:
-        response = tipsdb.scan()  #Escanea todos los elementos en la tabla
-        tips = response['Items']
-        
-        if tips:
-            # Elegir un tip aleatorio
-            tip_aleatorio = random.choice(tips)
-            await interaction.followup.send(tip_aleatorio['tip'])
-        else:
-            await interaction.followup.send("⚠️ No hay tips disponibles en este momento.")
-    
-    except Exception as e:
-        log_text = f"""
-                    🔴 ERROR al obtener el tip
-                    Usuario: {interaction.user}
-                    Error: {e}
-                    Fecha: {datetime.now()}
-                    """
-        upload_log_to_s3(log_text, filename_prefix="leer_tip_error")
-        await interaction.followup.send("⚠️ No pude obtener el consejo del día.")
-        print(e)
-
-#Enviar tips automatizado a una hora
-@tasks.loop(minutes=1) 
-async def enviar_tip_diario():
-    ahora = datetime.now().strftime("%H:%M")
-    #Enviar a las 10:00am 
-    if ahora == "10:00":
-        canal = bot.get_channel(CANAL_ID)
-        if canal:
-            try:
-                response = tipsdb.scan()  #Escanea todos los elementos en la tabla
-                tips = response['Items']
-                if tips:
-                    # Elegir un tip aleatorio
-                    tip_del_dia = random.choice(tips)
-                    await canal.send(tip_del_dia)
-                else:
-                    await canal.send("⚠️ No hay tips disponibles en este momento.")
-        
-            except Exception as e:
-                log_text = f"""
-                            🔴 ERROR al obtener el tip
-                            Canal: {canal}
-                            Error: {e}
-                            Fecha: {datetime.now()}
-                """
-                upload_log_to_s3(log_text, filename_prefix="leer_tip_error")
-                await interaction.followup.send("⚠️ No pude obtener el consejo del día.")
-                print(e)
                     
 #Logs a S3
 def upload_log_to_s3(log_text, filename_prefix="log"):
@@ -187,7 +130,7 @@ def upload_log_to_s3(log_text, filename_prefix="log"):
 #Ayuda
 @bot.tree.command(name="ayuda", description="Una guía de como podemos hablar 💡")
 async def ayuda(interaction: discord.Interaction):
-    await interaction.response.send_message('📖 Comandos disponibles:\n`/saludo` - Saludo de S3nsei\n`/tarea` - Próxima tarea o entrega\n`/tip` - Tip del curso del dia\n`/recursos` - Recursos útiles\nPuedes preguntarme sobre algunos servicios de AWS usando mi nombre `S3nsei` o `@S3nsei`')
+    await interaction.response.send_message('📖 Comandos disponibles:\n`/saludo` - Saludo de S3nsei\n`/tarea` - Próxima tarea o entrega\n`/recursos` - Recursos útiles\nPuedes preguntarme sobre algunos servicios de AWS usando mi nombre `S3nsei` o `@S3nsei`')
 
 
 #Conexion con Amazon Lex 
