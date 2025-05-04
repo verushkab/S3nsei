@@ -31,7 +31,8 @@ usuarios_en_conversacion = {}
 @bot.event
 async def on_ready():
     print(f'🧠 S3nsei conectado como {bot.user}')
-    enviar_tip_diario.start()
+    if not enviar_tip_diario.is_running():
+        enviar_tip_diario.start()
 
     try:
         synced = await bot.tree.sync()
@@ -39,7 +40,7 @@ async def on_ready():
         log_text = f"""
         🔴 ERROR al sincronizar slash commands
         Error: {e}
-        Fecha: {datetime.datetime.now()}
+        Fecha: {datetime.now()}
         """
         upload_log_to_s3(log_text, filename_prefix="sync_error")
         print(f"Error al sincronizar slash commands: {e}")
@@ -73,7 +74,7 @@ async def recursos(interaction: discord.Interaction):
                     🔴 ERROR al leer recursos
                     Usuario: {interaction.user}
                     Error: {e}
-                    Fecha: {datetime.datetime.now()}
+                    Fecha: {datetime.now()}
                     """
         upload_log_to_s3(log_text, filename_prefix="leer_recursos_error")
         await interaction.followup.send("⚠️ No pude leer los recursos.")
@@ -101,54 +102,11 @@ async def tarea(interaction: discord.Interaction):
                     🔴 ERROR al leer tareas
                     Usuario: {interaction.user}
                     Error: {e}
-                    Fecha: {datetime.datetime.now()}
+                    Fecha: {datetime.now()}
                     """
         upload_log_to_s3(log_text, filename_prefix="leer_tareas_error")
         await interaction.response.send_message("⚠️ No pude leer las tareas.")
         print(e)
-
-
-#Agregar tarea
-@bot.command()  
-@has_role("Instructor")  #Añadir Tareas por un role especifico
-async def agregar_tarea(ctx, titulo: str, fecha: str, *, detalle: str,):
-    tarea_id = str(uuid.uuid4())  #Generar un ID único para cada tarea
-    nueva_tarea = {
-        "id": tarea_id,
-        "titulo": titulo,
-        "fecha": fecha,
-        "detalle": detalle,
-        "fecha_creacion": str(datetime.datetime.now())
-    }
-
-    try:
-        #Guardar la tarea en DynamoDB
-        tareasdb.put_item(Item=nueva_tarea)
-
-        log_text = f"""
-                    ✅ TAREA AGREGADA
-                    Usuario: {ctx.author}
-                    Contenido: {nueva_tarea} 
-                    Fecha: {datetime.datetime.now()}
-                    """
-        upload_log_to_s3(log_text, filename_prefix="tarea_agregada")
-
-        await ctx.send(f"✅ Tarea **{titulo}** añadida correctamente para el {fecha}.")
-    except Exception as e:
-        await ctx.send("⚠️ No se pudo agregar la tarea.")
-        print(e)
-
-@agregar_tarea.error #Role no autorizado
-async def agregar_tarea_error(ctx, error):
-    if isinstance(error, CheckFailure):
-        log_text = f"""
-                    🔴 ERROR al usar /agregar_tarea
-                    Usuario: {ctx.author}
-                    Error: {error}
-                    Fecha: {datetime.datetime.now()}
-                    """
-        upload_log_to_s3(log_text, filename_prefix="agregar_tarea_error")
-        await ctx.send("⛔ No tienes permiso para usar este comando. Solo roles autorizados pueden agregar tareas.")
 
 #Tip del día
 @bot.tree.command(name="tip", description="Consejo del día para dominar AWS paso a paso ☁️📘")
@@ -171,7 +129,7 @@ async def tip(interaction: discord.Interaction):
                     🔴 ERROR al obtener el tip
                     Usuario: {interaction.user}
                     Error: {e}
-                    Fecha: {datetime.datetime.now()}
+                    Fecha: {datetime.now()}
                     """
         upload_log_to_s3(log_text, filename_prefix="leer_tip_error")
         await interaction.followup.send("⚠️ No pude obtener el consejo del día.")
@@ -181,20 +139,34 @@ async def tip(interaction: discord.Interaction):
 @tasks.loop(minutes=1) 
 async def enviar_tip_diario():
     ahora = datetime.now().strftime("%H:%M")
-
     #Enviar a las 10:00am 
     if ahora == "10:00":
         canal = bot.get_channel(CANAL_ID)
-
         if canal:
-            with open("tips.json", "r") as archivo:
-                tips = json.load(archivo)
-                tip_aleatorio = random.choice(tips) #Necesito almacenarlo para luego mostrarlo cuando sea solicitado en "Tip del día"
-                await canal.send(tip_aleatorio) 
-
+            try:
+                response = tipsdb.scan()  #Escanea todos los elementos en la tabla
+                tips = response['Items']
+                if tips:
+                    # Elegir un tip aleatorio
+                    tip_del_dia = random.choice(tips)
+                    await canal.send(tip_del_dia)
+                else:
+                    await canal.send("⚠️ No hay tips disponibles en este momento.")
+        
+            except Exception as e:
+                log_text = f"""
+                            🔴 ERROR al obtener el tip
+                            Canal: {canal}
+                            Error: {e}
+                            Fecha: {datetime.now()}
+                """
+                upload_log_to_s3(log_text, filename_prefix="leer_tip_error")
+                await interaction.followup.send("⚠️ No pude obtener el consejo del día.")
+                print(e)
+                    
 #Logs a S3
 def upload_log_to_s3(log_text, filename_prefix="log"):
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"{filename_prefix}_{timestamp}.txt"
 
     #Archivo temporal
@@ -211,22 +183,12 @@ def upload_log_to_s3(log_text, filename_prefix="log"):
         if os.path.exists(filename):
             os.remove(filename)  #Eliminando archivo temporal
 
-#Comando de prueba para logs en S3
-@bot.command(name="logtest")
-async def logtest(ctx):
-    log_text = f"""LOG DE COMANDO:
-    Usuario: {ctx.author}
-    Mensaje: {ctx.message.content}
-    Canal: {ctx.channel}
-    Fecha: {datetime.datetime.now()}
-    """
-    upload_log_to_s3(log_text, filename_prefix="comando_logtest")
-    await ctx.send("📤 Tu mensaje ha sido guardado como log en S3.")
 
 #Ayuda
 @bot.tree.command(name="ayuda", description="Una guía de como podemos hablar 💡")
 async def ayuda(interaction: discord.Interaction):
-    await interaction.response.send_message('📖 Comandos disponibles:\n`/saludo` - Saludo de S3nsei\n`/tarea` - Próxima tarea o entrega\n`/tip` - Tip del curso del dia\n`/recursos` - Recursos útiles')
+    await interaction.response.send_message('📖 Comandos disponibles:\n`/saludo` - Saludo de S3nsei\n`/tarea` - Próxima tarea o entrega\n`/tip` - Tip del curso del dia\n`/recursos` - Recursos útiles\nPuedes preguntarme sobre algunos servicios de AWS usando mi nombre `S3nsei` o `@S3nsei`')
+
 
 #Conexion con Amazon Lex 
 @bot.event
@@ -259,6 +221,7 @@ async def on_message(message):
             print(f"❌ Error al consultar a Lex: {e}")
 
         await bot.process_commands(message)
+
 
 bot.run(TOKEN)
 
