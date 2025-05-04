@@ -92,7 +92,7 @@ async def tarea(interaction: discord.Interaction):
         await interaction.response.send_message("⚠️ No pude leer las tareas.")
         print(e)
 
-#Mover LOGS a un import                    
+                 
 #Logs a S3
 def upload_log_to_s3(log_text, filename_prefix="log"):
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
