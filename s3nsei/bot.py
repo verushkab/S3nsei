@@ -5,7 +5,8 @@ import datetime
 from datetime import datetime
 from discord.ext import commands
 from dotenv import load_dotenv
-from lex_handler import consultar_lex
+from s3nsei.lex_handler import consultar_lex
+from s3nsei.logs_bucket import upload_log_to_s3
 
 
 load_dotenv('ini.env')  #Carga el archivo .env
@@ -92,26 +93,6 @@ async def tarea(interaction: discord.Interaction):
         await interaction.response.send_message("⚠️ No pude leer las tareas.")
         print(e)
 
-                 
-#Logs a S3
-def upload_log_to_s3(log_text, filename_prefix="log"):
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f"{filename_prefix}_{timestamp}.txt"
-
-    #Archivo temporal
-    with open(filename, "w") as file:
-        file.write(log_text)
-    try:
-        s3 = boto3.client("s3")
-        bucket_name = "s3nsei-logs"
-        s3.upload_file(filename, bucket_name, filename)
-        print(f"✅ Log subido a S3: {filename}")
-    except Exception as e:
-        print(f"❌ Error al subir log a S3: {e}")
-    finally:
-        if os.path.exists(filename):
-            os.remove(filename)  #Eliminando archivo temporal
-
 
 #Ayuda
 @bot.tree.command(name="ayuda", description="Una guía de como podemos hablar 💡")
@@ -141,5 +122,4 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
-bot.run(TOKEN)
 
