@@ -4,13 +4,10 @@ import boto3
 import datetime
 from datetime import datetime
 from discord.ext import commands
-from dotenv import load_dotenv
 from s3nsei.lex_handler import consultar_lex
 from s3nsei.logs_bucket import upload_log_to_s3
 
 
-load_dotenv('ini.env')  #Carga el archivo .env
-TOKEN = os.getenv("DISCORD_TOKEN")  #Obtiene el valor del TOKEN
 intents = discord.Intents.all()
 intents.message_content = True  #Necesario para leer mensajes
 bot = commands.Bot(command_prefix='!', intents=intents)

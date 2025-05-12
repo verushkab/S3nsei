@@ -1,8 +1,8 @@
 import os
-from dotenv import load_dotenv
-from s3nsei.bot import bot  # <- Aquí traes el objeto, no el módulo
+from s3nsei.bot import bot  
+from s3nsei.secrets import load_secrets
 
-load_dotenv("ini.env")
+secrets = load_secrets("discord-bot-token")
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 if __name__ == "__main__":

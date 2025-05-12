@@ -1,9 +1,8 @@
 import boto3
 import os
-from dotenv import load_dotenv
+from s3nsei.secrets import load_secrets
 
-
-load_dotenv('ini.env')  #Carga el archivo .env
+secrets = load_secrets("discord-bot-token")
 lex_client = boto3.client('lexv2-runtime', region_name='us-west-2')
 BOT_ID = os.getenv("BOT_ID")  #Obtiene id del botLex
 BOTALIAS_ID = os.getenv("BOTALIAS_ID")  #Obtiene id del botLexalias

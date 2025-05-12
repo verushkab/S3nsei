@@ -2,7 +2,7 @@
 FROM python:3.11-slim
 
 # Establece el directorio de trabajo
-WORKDIR /app
+WORKDIR /Bot
 
 # Copia todos los archivos del proyecto
 COPY . .
@@ -11,4 +11,4 @@ COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Comando para ejecutar el bot
-CMD ["python", "bot.py"]
+CMD ["python", "run.py"]
