@@ -4,8 +4,10 @@ import boto3
 import datetime
 from datetime import datetime
 from discord.ext import commands
+from discord import app_commands
 from s3nsei.lex_handler import consultar_lex
 from s3nsei.logs_bucket import upload_log_to_s3
+from s3nsei.stickers import cargar_stickers, obtener_url_sticker, autocompletar_stickers
 
 
 intents = discord.Intents.all()
@@ -21,6 +23,7 @@ async def on_ready():
     print(f'🧠 S3nsei conectado como {bot.user}')
 
     try:
+        cargar_stickers()
         await bot.tree.sync()
     except Exception as e:
         log_text = f"""
@@ -89,6 +92,17 @@ async def tarea(interaction: discord.Interaction):
         upload_log_to_s3(log_text, filename_prefix="leer_tareas_error")
         await interaction.response.send_message("⚠️ No pude leer las tareas.")
         print(e)
+
+#Stickers    
+@bot.tree.command(name="stickers", description="Envía un sticker de S3nsei")
+#@app_commands.describe(nombre="Nombre del sticker")
+@app_commands.autocomplete(nombre=autocompletar_stickers)
+async def sticker_command(interaction: discord.Interaction, nombre: str):
+    url = obtener_url_sticker(nombre)
+    embed = discord.Embed(title=f"Sticker: {nombre}")
+    embed.set_image(url=url)
+    await interaction.response.send_message(embed=embed)
+
 
 
 #Ayuda
