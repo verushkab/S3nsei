@@ -95,7 +95,7 @@ async def tarea(interaction: discord.Interaction):
 
 #Stickers    
 @bot.tree.command(name="stickers", description="Envía un sticker de S3nsei")
-#@app_commands.describe(nombre="Nombre del sticker")
+@app_commands.describe(nombre="Nombre del sticker")
 @app_commands.autocomplete(nombre=autocompletar_stickers)
 async def sticker_command(interaction: discord.Interaction, nombre: str):
     url = obtener_url_sticker(nombre)
